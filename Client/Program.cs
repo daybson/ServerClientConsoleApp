@@ -10,6 +10,7 @@ namespace Client
     {
         static void Main(string[] args)
         {
+            /*
             Console.Write("Client IP:");
             string ip = Console.ReadLine();
 
@@ -17,6 +18,9 @@ namespace Client
             int port = Int32.Parse(Console.ReadLine());
 
             Client c = new Client(ip, port);
+            */
+
+            var c = new Client("127.0.0.1", 2929);
         }
     }
 }

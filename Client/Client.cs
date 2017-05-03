@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Client
@@ -20,8 +21,42 @@ namespace Client
             client = new TcpClient();
             client.Connect(ipAddress, port);
 
-            HandleCommunication();
+            Thread reader = new Thread(ReadData);
+            Thread writer = new Thread(WriteData);
+
+            isConnected = true;
+
+            reader.Start();
+            writer.Start();
+
+            //HandleCommunication();
         }
+
+
+        private void ReadData()
+        {
+            r = new StreamReader(client.GetStream(), Encoding.UTF8);
+            while(isConnected)
+            {
+                string data = r.ReadLine();
+                Console.WriteLine($"Message received: {data}");
+            }
+        }
+
+
+        private void WriteData()
+        {
+            w = new StreamWriter(client.GetStream(), Encoding.UTF8);
+            string data = null;
+            while(isConnected)
+            {
+                Console.Write("Type a message: ");
+                data = Console.ReadLine();
+                w.WriteLine(data);
+                w.Flush();
+            }
+        }
+
 
         private void HandleCommunication()
         {
@@ -33,10 +68,12 @@ namespace Client
 
             while(isConnected)
             {
-                Console.WriteLine("Type: ");
+                Console.Write("Type a message: ");
                 data = Console.ReadLine();
                 w.WriteLine(data);
                 w.Flush();
+
+                Console.WriteLine($"Message received: {r.ReadLine()}");
             }
         }
     }
