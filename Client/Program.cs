@@ -19,7 +19,6 @@ namespace Client
 
             Client c = new Client(ip, port);
             */
-
             var c = new Client("127.0.0.1", 2929);
         }
     }

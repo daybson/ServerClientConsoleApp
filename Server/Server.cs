@@ -26,7 +26,7 @@ namespace Server
 
         private void LoopClients()
         {
-            while(isRunning)
+            while (isRunning)
             {
                 TcpClient tcpClient = server.AcceptTcpClient();
                 Console.WriteLine($"Novo cliente conectado: {tcpClient.Client.RemoteEndPoint.ToString()}");
@@ -36,44 +36,42 @@ namespace Server
                 var stream = tcpClient.GetStream();
                 var client = new ClientData(clients.Count, tcpClient, stream);
 
-                lock(clients)
+                lock (clients)
                 {
                     clients.Add(clients.Count, client);
                 }
 
                 reader.Start(client);
-                writer.Start(client);
-                //Thread t = new Thread(new ParameterizedThreadStart(HandleCliend));
-                //t.Start(client);
             }
         }
 
 
         private void ReadData(object obj)
         {
-            var client = (ClientData) obj;
-            var clientConnected = true;
-            string data = null;
+            bool clientConnected = true;
+            ClientData clientData = (ClientData)obj;
 
-            while(clientConnected)
+            while (clientConnected)
             {
-                if(!client.stream.DataAvailable)
-                    continue;
+                string data = null;
+                byte[] buff = null;
+                buff = new byte[1024];
 
-                var buff = new byte[2048];
+                int count = clientData.stream.Read(buff, 0, buff.Length);
 
-                lock(clients)
+                if (count > 0)
                 {
-                    int count = client.stream.Read(buff, 0, 2048);
-
-                    if(count > 0)
+                    data = Encoding.UTF8.GetString(buff);
+                    data = data.Substring(0, data.IndexOf("\0"));
+                    //data = $"Client {clientData.tcpClient.Client.RemoteEndPoint.ToString()}: {data}";
+                    //buff = Encoding.UTF8.GetBytes(data);
+                    lock (clients)
                     {
-                        data = Encoding.UTF8.GetString(buff);
-                        data = data.Substring(0, data.IndexOf("\0"));
-                        var c = clients.ToList().Find(x => x.Value.id == client.id).Value;
-                        c.LastData = data;
-                        Console.WriteLine($"Client {client.tcpClient.Client.RemoteEndPoint.ToString()}: {data}");
-                        c.LastData = "";
+                        foreach (var cl in clients)
+                        {
+                            cl.Value.stream.Write(buff, 0, buff.Length);
+                            cl.Value.stream.Flush();
+                        }
                     }
                 }
             }
@@ -82,16 +80,16 @@ namespace Server
 
         private void WriteData(object obj)
         {
-            var client = (ClientData) obj;
+            var client = (ClientData)obj;
             var clientConnected = true;
 
-            while(clientConnected)
+            while (clientConnected)
             {
-                lock(clients)
+                lock (clients)
                 {
-                    foreach(var c in clients)
+                    foreach (var c in clients)
                     {
-                        if(c.Value.LastData?.Length > 0)
+                        if (c.Value.LastData?.Length > 0)
                         {
                             var buff = Encoding.UTF8.GetBytes($"Client: {c.Value.LastData}");
                             client.stream.Write(buff, 0, buff.Length);
