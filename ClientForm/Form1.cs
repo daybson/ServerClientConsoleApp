@@ -21,10 +21,11 @@ namespace ClientForm
         private bool isConnected;
         private string Nome;
         private string IP;
+        private Thread threadReader;
 
         public Form1()
         {
-            InitializeComponent();            
+            InitializeComponent();
         }
 
         private void ReadData()
@@ -41,8 +42,6 @@ namespace ClientForm
                     data = Encoding.UTF8.GetString(buff);
                     this.InvokeEx(t => t.listBox1.Items.Add(data.Trim()));
                 }
-
-                isConnected = client.Client.IsBound;
             }
         }
 
@@ -67,8 +66,14 @@ namespace ClientForm
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
-            client.Client.Shutdown(SocketShutdown.Both);
-            client.Client.Close();
+            if (this.client.Client.Connected)
+            {
+                this.client.Client.Shutdown(SocketShutdown.Both);
+                this.client.Client.Close();
+            }
+
+            if (this.threadReader.IsAlive)
+                this.threadReader.Abort();
         }
 
         private void button2_Click(object sender, EventArgs e)
@@ -86,10 +91,10 @@ namespace ClientForm
                     client = new TcpClient();
                     client.Connect(this.IP, 2929);
 
-                    Thread reader = new Thread(ReadData);
+                    this.threadReader = new Thread(ReadData);
 
                     isConnected = true;
-                    reader.Start();
+                    this.threadReader.Start();
 
                     lblStatus.Text = "Conectado!";
                     lblStatus.ForeColor = Color.Green;
@@ -105,7 +110,7 @@ namespace ClientForm
 
         private void txbInput_KeyDown(object sender, KeyEventArgs e)
         {
-            if(e.KeyCode == Keys.Enter)
+            if (e.KeyCode == Keys.Enter)
             {
                 button1_Click(sender, e);
             }

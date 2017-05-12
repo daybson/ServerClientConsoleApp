@@ -81,6 +81,7 @@
             this.txtNome.Name = "txtNome";
             this.txtNome.Size = new System.Drawing.Size(219, 20);
             this.txtNome.TabIndex = 4;
+            this.txtNome.Text = "user";
             // 
             // label1
             // 
@@ -116,6 +117,7 @@
             this.txtIP.Name = "txtIP";
             this.txtIP.Size = new System.Drawing.Size(219, 20);
             this.txtIP.TabIndex = 8;
+            this.txtIP.Text = "localhost";
             // 
             // Form1
             // 

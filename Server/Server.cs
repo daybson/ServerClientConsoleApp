@@ -14,6 +14,7 @@ namespace Server
         private TcpListener server;
         private bool isRunning;
         private Dictionary<int, ClientData> clients;
+        private Thread threadReading;
 
         public Server(int port)
         {
@@ -29,10 +30,11 @@ namespace Server
             while (isRunning)
             {
                 TcpClient tcpClient = server.AcceptTcpClient();
+                Console.ForegroundColor = ConsoleColor.DarkGreen;
                 Console.WriteLine($"Novo cliente conectado: {tcpClient.Client.RemoteEndPoint.ToString()}");
 
-                Thread reader = new Thread(new ParameterizedThreadStart(ReadData));
-                Thread writer = new Thread(new ParameterizedThreadStart(WriteData));
+                this.threadReading = new Thread(new ParameterizedThreadStart(ReadData));
+                //Thread writer = new Thread(new ParameterizedThreadStart(WriteData));
                 var stream = tcpClient.GetStream();
                 var client = new ClientData(clients.Count, tcpClient, stream);
 
@@ -41,7 +43,7 @@ namespace Server
                     clients.Add(clients.Count, client);
                 }
 
-                reader.Start(client);
+                this.threadReading.Start(client);
             }
         }
 
@@ -56,97 +58,59 @@ namespace Server
                 string data = null;
                 byte[] buff = null;
                 buff = new byte[1024];
+                int count = 0;
 
-                int count = clientData.stream.Read(buff, 0, buff.Length);
-
-                if (count > 0)
+                try
                 {
-                    data = Encoding.UTF8.GetString(buff);
-                    data = data.Substring(0, data.IndexOf("\0"));
-                    //data = $"Client {clientData.tcpClient.Client.RemoteEndPoint.ToString()}: {data}";
-                    //buff = Encoding.UTF8.GetBytes(data);
-                    lock (clients)
+                    count = clientData.stream.Read(buff, 0, buff.Length);
+                    if (count > 0)
                     {
-                        foreach (var cl in clients)
+                        data = Encoding.UTF8.GetString(buff);
+                        data = data.Substring(0, data.IndexOf("\0"));
+
+                        Console.ForegroundColor = ConsoleColor.DarkBlue;
+
+                        lock (clients)
                         {
-                            cl.Value.stream.Write(buff, 0, buff.Length);
-                            cl.Value.stream.Flush();
+                            foreach (var cl in clients)
+                            {
+                                Console.WriteLine($"Replicando mensagem para {cl.Value.tcpClient.Client.RemoteEndPoint.ToString()}: {data}");
+                                cl.Value.stream.Write(buff, 0, buff.Length);
+                                cl.Value.stream.Flush();
+                            }
                         }
                     }
                 }
-            }
-        }
-
-
-        private void WriteData(object obj)
-        {
-            var client = (ClientData)obj;
-            var clientConnected = true;
-
-            while (clientConnected)
-            {
-                lock (clients)
+                catch (Exception e)
                 {
-                    foreach (var c in clients)
+                    lock (this.clients)
                     {
-                        if (c.Value.LastData?.Length > 0)
-                        {
-                            var buff = Encoding.UTF8.GetBytes($"Client: {c.Value.LastData}");
-                            client.stream.Write(buff, 0, buff.Length);
-                            client.stream.Flush();
-                        }
+                        this.clients.Remove(clientData.id);
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine($"Cliente {clientData.tcpClient.Client.RemoteEndPoint.ToString()} " +
+                                          $"está offline.\n" +
+                                          $"Clientes conectados: {this.clients.Count}");
+                        clientData.tcpClient.Client.Shutdown(SocketShutdown.Both);
+                        clientData.tcpClient.Client.Close();
+                        this.threadReading.Abort();
                     }
+                    break;
                 }
             }
         }
 
-
-        private void HandleCliend(object obj)
-        {
-            /*
-            var tcpClient = (TcpClient) obj;
-            var w = new StreamWriter(tcpClient.GetStream(), Encoding.UTF8);
-            var r = new StreamReader(tcpClient.GetStream(), Encoding.UTF8);
-            var c = new ClientData(clients.Count, tcpClient, w, r);
-
-            lock(clients)
-            {
-                clients.Add(clients.Count, c);
-            }
-
-            var clientConnected = true;
-            string data = null;
-
-            while(clientConnected)
-            {
-                lock(clients)
-                {
-                    //foreach(var c in clients)//.Where(x => x.Value.id != clientData.id))
-                    {
-                        data = c.r.ReadLine();
-                        Console.WriteLine($"Client {c.tcpClient.Client.RemoteEndPoint.ToString()}: {data}");
-
-                        c.w.Write($"Client {c.tcpClient.Client.RemoteEndPoint.ToString()}: {data}");
-                        c.w.Flush();
-                    }
-                }
-            }
-            */
-        }
 
         private class ClientData
         {
             public int id { get; private set; }
             public TcpClient tcpClient { get; private set; }
             public NetworkStream stream { get; private set; }
-            public string LastData;
 
             public ClientData(int id, TcpClient tcpClient, NetworkStream stream)
             {
                 this.id = id;
                 this.tcpClient = tcpClient;
                 this.stream = stream;
-
             }
         }
     }
